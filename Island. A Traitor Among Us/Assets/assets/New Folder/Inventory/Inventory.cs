@@ -3,99 +3,83 @@ using UnityEngine;
 
 public class Inventory : MonoBehaviour
 {
+    [Header("Inventory")]
     public int maxSlots = 2;
     public List<Item> items = new List<Item>();
 
+    [Header("Drop settings")]
     public float dropForwardDistance = 1.5f;
-    public float dropHeight = 0.5f;
+    public float dropHeight = 1f;
+
+    [Header("Crafting")]
+    public CraftManager craftManager;
 
     private void Awake()
     {
-        // Убедимся, что список слотов всегда нужного размера
         while (items.Count < maxSlots)
             items.Add(null);
+
+        if (craftManager == null)
+            craftManager = FindAnyObjectByType<CraftManager>();
     }
 
-    // Добавление предмета в слот
-    public bool AddItem(Item newItem, int slotIndex)
+    public void AddItem(Item newItem, int slotIndex)
     {
         if (newItem == null)
         {
-            Debug.LogWarning("Попытка добавить null в Inventory!");
-            return false;
+            Debug.LogWarning("Попытка добавить null в инвентарь!");
+            return;
         }
 
         if (slotIndex < 0 || slotIndex >= maxSlots)
         {
-            Debug.LogWarning("Неверный индекс слота для AddItem: " + slotIndex);
-            return false;
+            Debug.LogWarning("Неверный слот: " + slotIndex);
+            return;
         }
 
         if (items[slotIndex] != null)
         {
-            Debug.Log("Слот " + slotIndex + " занят. Старый предмет остаётся.");
-            return false;
+            DropItem(slotIndex, transform);
         }
 
-        newItem.gameObject.SetActive(false);
         items[slotIndex] = newItem;
+        newItem.gameObject.SetActive(false);
 
         Rigidbody rb = newItem.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.isKinematic = true; // выключаем физику пока предмет в инвентаре
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-        }
+        if (rb != null) rb.isKinematic = true;
 
         Debug.Log("Поднял: " + newItem.itemName + " в слот " + slotIndex);
-        return true;
     }
 
-    // Выброс предмета перед игроком
-    public bool DropItem(int slotIndex, Transform playerTransform)
+    public void DropItem(int slotIndex, Transform playerTransform)
     {
-        if (slotIndex < 0 || slotIndex >= maxSlots)
-            return false;
+        if (slotIndex < 0 || slotIndex >= maxSlots) return;
 
         Item item = items[slotIndex];
-        if (item == null)
-        {
-            Debug.Log("В слоте " + slotIndex + " ничего нет.");
-            return false;
-        }
+        if (item == null) return;
 
-        items[slotIndex] = null;
+        Vector3 dropPos = playerTransform.position +
+                          playerTransform.forward * dropForwardDistance +
+                          Vector3.up * dropHeight;
+
         item.gameObject.SetActive(true);
-
-        Vector3 dropPos = playerTransform.position + playerTransform.forward * dropForwardDistance + Vector3.up * dropHeight;
-
-        // Raycast вниз для пола
-        RaycastHit hit;
-        int groundLayer = LayerMask.GetMask("Ground");
-        if (Physics.Raycast(dropPos, Vector3.down, out hit, 5f, groundLayer))
-            dropPos.y = hit.point.y + 0.1f;
-
         item.transform.position = dropPos;
 
-        Rigidbody rb = item.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.isKinematic = true; // включаем физику
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.AddForce((playerTransform.forward + Vector3.up * 0.5f) * 2f, ForceMode.Impulse);
-        }
-
-        Debug.Log("Выбросил: " + item.itemName + " из слота " + slotIndex);
-
-        // Проверяем крафт вокруг дропнутого предмета
-        CraftManager cm = Object.FindFirstObjectByType<CraftManager>();
-        if (cm != null)
-            cm.CheckCraft(dropPos);
+        // костёр поворачиваем особым образом
+        if (item.itemName.ToLower().Contains("костёр") || item.itemName.ToLower().Contains("campfire"))
+            item.transform.rotation = Quaternion.Euler(-90f, playerTransform.eulerAngles.y, 0f);
         else
-            Debug.LogWarning("CraftManager не найден на сцене!");
+            item.transform.rotation = Quaternion.identity;
 
-        return true;
+        Rigidbody rb = item.GetComponent<Rigidbody>();
+        if (rb != null) rb.isKinematic = true;
+
+        Debug.Log("Выбросил: " + item.itemName);
+
+        items[slotIndex] = null;
+
+        // проверка крафта
+        if (craftManager != null)
+            craftManager.CheckCraft(dropPos);
     }
 }
