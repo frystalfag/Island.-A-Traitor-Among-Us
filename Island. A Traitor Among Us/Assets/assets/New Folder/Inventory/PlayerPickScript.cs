@@ -4,8 +4,8 @@ using TMPro;
 public class PlayerPickScript : MonoBehaviour
 {
     public float pickRange = 3f;
-    public KeyCode pickKey = KeyCode.E; // слот 2
-    public KeyCode dropKey = KeyCode.Q; // слот 1
+    public KeyCode pickKey = KeyCode.E; 
+    public KeyCode dropKey = KeyCode.Q; 
     public Inventory inventory;
 
     public Camera playerCamera;
@@ -29,7 +29,6 @@ public class PlayerPickScript : MonoBehaviour
 
     void HandleInput()
     {
-        // Слот 1 (Q)
         if (Input.GetKeyDown(dropKey))
         {
             if (inventory.items[0] != null)
@@ -41,7 +40,6 @@ public class PlayerPickScript : MonoBehaviour
             }
         }
 
-        // Слот 2 (E)
         if (Input.GetKeyDown(pickKey))
         {
             if (inventory.items[1] != null)
@@ -61,8 +59,7 @@ public class PlayerPickScript : MonoBehaviour
         if (Physics.Raycast(ray, out RaycastHit hit, pickRange))
         {
             Item item = hit.collider.GetComponent<Item>();
-            if (item != null)
-                currentTarget = item;
+            if (item != null) currentTarget = item;
         }
 
         if (currentTarget != null)
