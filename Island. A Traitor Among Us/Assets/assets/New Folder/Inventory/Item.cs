@@ -2,6 +2,6 @@ using UnityEngine;
 
 public class Item : MonoBehaviour
 {
-    public string itemName;      // Название предмета
-    public Sprite itemIcon;      // Иконка для UI
+    public string itemName;      // Логическое имя предмета
+    public Sprite itemIcon;      // Для UI
 }

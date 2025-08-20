@@ -4,10 +4,10 @@ using TMPro;
 public class PlayerPickScript : MonoBehaviour
 {
     public float pickRange = 3f;
-    public KeyCode slot1Key = KeyCode.Q;
-    public KeyCode slot2Key = KeyCode.E;
-
+    public KeyCode pickKey = KeyCode.E; // слот 2
+    public KeyCode dropKey = KeyCode.Q; // слот 1
     public Inventory inventory;
+
     public Camera playerCamera;
     public TMP_Text pickupHint;
     public CanvasGroup hintCanvasGroup;
@@ -23,28 +23,34 @@ public class PlayerPickScript : MonoBehaviour
         CheckTarget();
         HandleInput();
 
-        // Плавное появление/исчезновение подсказки
-        hintCanvasGroup.alpha = Mathf.MoveTowards(hintCanvasGroup.alpha, currentTarget != null ? 1f : 0f, fadeSpeed * Time.deltaTime);
+        float targetAlpha = currentTarget != null ? 1f : 0f;
+        hintCanvasGroup.alpha = Mathf.MoveTowards(hintCanvasGroup.alpha, targetAlpha, fadeSpeed * Time.deltaTime);
     }
 
     void HandleInput()
     {
-        if (Input.GetKeyDown(slot1Key)) HandleSlot(0);
-        if (Input.GetKeyDown(slot2Key)) HandleSlot(1);
-    }
-
-    void HandleSlot(int slotIndex)
-    {
-        if (inventory.items[slotIndex] != null)
+        // Слот 1 (Q)
+        if (Input.GetKeyDown(dropKey))
         {
-            // Если слот занят — выбрасываем
-            inventory.DropItem(slotIndex);
+            if (inventory.items[0] != null)
+                inventory.DropItem(0, transform);
+            else if (currentTarget != null)
+            {
+                inventory.AddItem(currentTarget, 0);
+                currentTarget = null;
+            }
         }
-        else if (currentTarget != null)
+
+        // Слот 2 (E)
+        if (Input.GetKeyDown(pickKey))
         {
-            // Если слот пуст — подбираем
-            inventory.AddItem(currentTarget, slotIndex);
-            currentTarget = null;
+            if (inventory.items[1] != null)
+                inventory.DropItem(1, transform);
+            else if (currentTarget != null)
+            {
+                inventory.AddItem(currentTarget, 1);
+                currentTarget = null;
+            }
         }
     }
 
@@ -52,14 +58,13 @@ public class PlayerPickScript : MonoBehaviour
     {
         currentTarget = null;
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-
         if (Physics.Raycast(ray, out RaycastHit hit, pickRange))
         {
             Item item = hit.collider.GetComponent<Item>();
-            if (item != null) currentTarget = item;
+            if (item != null)
+                currentTarget = item;
         }
 
-        // Подсказка [Q]/[E] и название предмета
         if (currentTarget != null)
         {
             string hint = "";
@@ -69,8 +74,6 @@ public class PlayerPickScript : MonoBehaviour
             pickupHint.text = hint;
         }
         else
-        {
             pickupHint.text = "";
-        }
     }
 }
