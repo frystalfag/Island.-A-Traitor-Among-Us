@@ -1,30 +1,33 @@
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UI; // Добавляем для работы со Slider
 
 public class HungerSystem : MonoBehaviour
 {
     public float maxHunger = 100f;
     public float currentHunger;
     public float hungerDecreaseRate = 1f;
-    public Slider hungerSlider;
-    private HealthSystem healthSystem;
+    public Slider hungerSlider; // Ссылка на Slider голода
 
     void Start()
     {
         currentHunger = maxHunger;
-        healthSystem = GetComponent<HealthSystem>();
-        UpdateUI();
+        if (hungerSlider != null)
+        {
+            hungerSlider.maxValue = maxHunger;
+            hungerSlider.value = currentHunger;
+        }
     }
 
     void Update()
     {
         currentHunger -= hungerDecreaseRate * Time.deltaTime;
+        if (hungerSlider != null)
+        {
+            hungerSlider.value = currentHunger;
+        }
         if (currentHunger <= 0)
         {
-            if (healthSystem != null)
-            {
-                healthSystem.TakeDamage(1f * Time.deltaTime);
-            }
+            GetComponent<HealthSystem>().TakeDamage(1f * Time.deltaTime);
         }
     }
 
@@ -35,14 +38,8 @@ public class HungerSystem : MonoBehaviour
         {
             currentHunger = maxHunger;
         }
-    }
-    
-    // Метод, который будет вызываться из Update() другого скрипта
-    public void UpdateUI()
-    {
         if (hungerSlider != null)
         {
-            hungerSlider.maxValue = maxHunger;
             hungerSlider.value = currentHunger;
         }
     }

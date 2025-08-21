@@ -37,14 +37,21 @@ public class GameCycleManager : MonoBehaviour
     [Tooltip("Точка возрождения игрока.")]
     public Transform spawnPoint;
 
-    [Header("Skybox Settings")]
-    [Tooltip("Материал скайбокса, который будет установлен в начале игры.")]
+    [Header("Skybox & Temperature Settings")]
+    [Tooltip("Материал скайбокса для дня.")]
     public Material daySkybox;
-
+    [Tooltip("Материал скайбокса для ночи.")]
+    public Material nightSkybox;
+    [Tooltip("Температура окружающей среды днём.")]
+    public float dayTemperature = 25f;
+    [Tooltip("Температура окружающей среды ночью.")]
+    public float nightTemperature = -20f;
+    
     // === Внутренние переменные ===
     private float currentTimer;
     private int dayCount = 0;
     private bool isFading = false;
+    private TemperatureSystem temperatureSystem;
 
     private enum GameState
     {
@@ -57,24 +64,28 @@ public class GameCycleManager : MonoBehaviour
 
     void Start()
     {
-        // Установка начального состояния UI
         if (fadePanel == null || phaseTitleText == null || timerText == null)
         {
             Debug.LogError("Один или несколько UI-элементов не подключены в инспекторе GameCycleManager!");
             return;
         }
+
+        temperatureSystem = FindObjectOfType<TemperatureSystem>();
+        if (temperatureSystem == null)
+        {
+            Debug.LogError("TemperatureSystem не найден в сцене!");
+        }
+
         fadePanel.alpha = 1f;
         timerText.enabled = false;
-
-        // Установка скайбокса
+        
         if (daySkybox != null)
         {
             RenderSettings.skybox = daySkybox;
-            Debug.Log("Скайбокс установлен.");
         }
         else
         {
-            Debug.LogWarning("Материал скайбокса не найден!");
+            Debug.LogWarning("Материал скайбокса дня не найден!");
         }
 
         StartCoroutine(GameLoop());
@@ -93,7 +104,6 @@ public class GameCycleManager : MonoBehaviour
             }
             timerText.text = "Time: " + Mathf.RoundToInt(currentTimer).ToString();
         }
-        // ... (остальные состояния)
     }
 
     private IEnumerator GameLoop()
@@ -102,15 +112,16 @@ public class GameCycleManager : MonoBehaviour
         {
             dayCount++;
             currentState = GameState.Day;
+            if (temperatureSystem != null) temperatureSystem.environmentTemperature = dayTemperature;
+            if (daySkybox != null) RenderSettings.skybox = daySkybox;
 
+            // ... (Ваша существующая логика для дня)
             // Показываем текст "DAY 1"
             if (phaseTitleText != null)
             {
                 phaseTitleText.text = "DAY " + dayCount;
                 yield return StartCoroutine(FadeInText(phaseTitleText));
             }
-            
-            // Ждем, чтобы текст показали, и затем убираем его
             yield return new WaitForSeconds(phaseTitleDisplayDuration);
             if (phaseTitleText != null)
             {
@@ -136,12 +147,17 @@ public class GameCycleManager : MonoBehaviour
             }
 
             // Переход к ночи (затемняем экран)
+            currentState = GameState.NightTransition;
+            if (temperatureSystem != null) temperatureSystem.environmentTemperature = nightTemperature;
+            if (nightSkybox != null) RenderSettings.skybox = nightSkybox;
+            
             if (fadePanel != null)
             {
                 yield return StartCoroutine(FadeScreen(1, ""));
             }
             isFading = false;
-
+            
+            // ... (Ваша существующая логика для ночи)
             // Телепортация игрока
             if (playerTransform != null && spawnPoint != null)
             {
@@ -172,6 +188,7 @@ public class GameCycleManager : MonoBehaviour
                 currentTimer = discussionDurationInSeconds;
                 while (currentTimer > 0)
                 {
+                    currentTimer -= Time.deltaTime;
                     yield return null;
                 }
                 yield return StartCoroutine(FadeOutText(timerText));
@@ -197,6 +214,7 @@ public class GameCycleManager : MonoBehaviour
                 currentTimer = votingDurationInSeconds;
                 while (currentTimer > 0)
                 {
+                    currentTimer -= Time.deltaTime;
                     yield return null;
                 }
                 yield return StartCoroutine(FadeOutText(timerText));
@@ -216,6 +234,8 @@ public class GameCycleManager : MonoBehaviour
             }
         }
     }
+    
+    // ... (Ваши существующие методы FadeScreen, FadeOutText, FadeInText)
 
     private IEnumerator FadeScreen(float targetAlpha, string textToShow)
     {

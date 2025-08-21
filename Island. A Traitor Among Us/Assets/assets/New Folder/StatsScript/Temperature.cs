@@ -8,7 +8,8 @@ public class TemperatureSystem : MonoBehaviour
     public float minTemperature = 30f;
     public float maxTemperature = 42f;
 
-    public float environmentTemperature = 25f;
+    // Сделаем это публичным, чтобы другие скрипты могли его менять
+    public float environmentTemperature; 
     public TMP_Text temperatureText;
     private HealthSystem healthSystem;
 
@@ -37,9 +38,9 @@ public class TemperatureSystem : MonoBehaviour
                 healthSystem.TakeDamage(2f * Time.deltaTime);
             }
         }
+        UpdateUI();
     }
     
-    // Метод, который будет вызываться из Update() другого скрипта
     public void UpdateUI()
     {
         if (temperatureText != null)

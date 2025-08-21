@@ -1,21 +1,29 @@
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UI; // Добавляем для работы со Slider
 
 public class HealthSystem : MonoBehaviour
 {
     public float maxHealth = 100f;
     public float currentHealth;
-    public Slider healthSlider;
+    public Slider healthSlider; // Ссылка на Slider здоровья
 
     void Start()
     {
         currentHealth = maxHealth;
-        UpdateUI();
+        if (healthSlider != null)
+        {
+            healthSlider.maxValue = maxHealth;
+            healthSlider.value = currentHealth;
+        }
     }
 
     public void TakeDamage(float amount)
     {
         currentHealth -= amount;
+        if (healthSlider != null)
+        {
+            healthSlider.value = currentHealth;
+        }
         if (currentHealth <= 0)
         {
             Die();
@@ -29,20 +37,14 @@ public class HealthSystem : MonoBehaviour
         {
             currentHealth = maxHealth;
         }
+        if (healthSlider != null)
+        {
+            healthSlider.value = currentHealth;
+        }
     }
 
     void Die()
     {
         Debug.Log("Персонаж умер!");
-    }
-    
-    // Метод, который будет вызываться из Update() другого скрипта
-    public void UpdateUI()
-    {
-        if (healthSlider != null)
-        {
-            healthSlider.maxValue = maxHealth;
-            healthSlider.value = currentHealth;
-        }
     }
 }

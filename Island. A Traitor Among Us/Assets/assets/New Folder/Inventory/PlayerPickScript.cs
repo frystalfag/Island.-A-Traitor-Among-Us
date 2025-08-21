@@ -26,6 +26,7 @@ public class PlayerPickScript : MonoBehaviour
     private Chest currentChest = null;
     private Item currentTarget = null;
     
+    // Private references to other systems
     private HungerSystem hungerSystem;
     private HealthSystem healthSystem;
     private TemperatureSystem temperatureSystem;
@@ -34,15 +35,48 @@ public class PlayerPickScript : MonoBehaviour
 
     void Start()
     {
+        Debug.Log("PlayerPickScript: Start method called.");
+        // Attempt to get references to the system scripts
         hungerSystem = GetComponent<HungerSystem>();
         healthSystem = GetComponent<HealthSystem>();
         temperatureSystem = GetComponent<TemperatureSystem>();
+
+        // Check if the references were successfully found
+        if (hungerSystem == null)
+        {
+            Debug.LogError("Error: HungerSystem component not found on this GameObject. Make sure it's attached.");
+        }
+        else
+        {
+            Debug.Log("Success: HungerSystem component found.");
+        }
+
+        if (healthSystem == null)
+        {
+            Debug.LogError("Error: HealthSystem component not found on this GameObject. Make sure it's attached.");
+        }
+        else
+        {
+            Debug.Log("Success: HealthSystem component found.");
+        }
+
+        if (temperatureSystem == null)
+        {
+            Debug.LogError("Error: TemperatureSystem component not found on this GameObject. Make sure it's attached.");
+        }
+        else
+        {
+            Debug.Log("Success: TemperatureSystem component found.");
+        }
     }
 
     void Update()
     {
+        // ... (existing code for handling world and chest interactions)
         if (playerCamera == null || inventory == null || pickupHint == null || hintCanvasGroup == null)
+        {
             return;
+        }
 
         if (isChestUIOpen)
         {
@@ -91,7 +125,7 @@ public class PlayerPickScript : MonoBehaviour
         {
             if (inventory.items[0] is ConsumableItem)
             {
-                UseItemFromSlotQ();
+                UseItem(0);
             }
             else if (currentTarget != null)
             {
@@ -117,7 +151,7 @@ public class PlayerPickScript : MonoBehaviour
             }
             else if (inventory.items[1] is ConsumableItem)
             {
-                UseItemFromSlotE();
+                UseItem(1);
             }
             else if (currentTarget != null)
             {
@@ -189,42 +223,57 @@ public class PlayerPickScript : MonoBehaviour
         }
     }
 
-    void UseItemFromSlotQ()
+    void UseItem(int slotIndex)
     {
-        Item itemToUse = inventory.items[0];
-        if (itemToUse != null)
-        {
-            ConsumableItem consumableItem = itemToUse as ConsumableItem;
-            if (consumableItem != null)
-            {
-                consumableItem.Use(gameObject);
-                inventory.items[0] = null;
-                // Обновляем UI после использования
-                hungerSystem?.UpdateUI();
-                healthSystem?.UpdateUI();
-                temperatureSystem?.UpdateUI();
-            }
-        }
-    }
+        Debug.Log($"Attempting to use item from slot: {slotIndex}");
 
-    void UseItemFromSlotE()
-    {
-        Item itemToUse = inventory.items[1];
-        if (itemToUse != null)
+        // Check if the item in the inventory is a ConsumableItem
+        if (inventory == null || inventory.items == null || inventory.items.Count <= slotIndex || !(inventory.items[slotIndex] is ConsumableItem))
         {
-            ConsumableItem consumableItem = itemToUse as ConsumableItem;
-            if (consumableItem != null)
-            {
-                consumableItem.Use(gameObject);
-                inventory.items[1] = null;
-                // Обновляем UI после использования
-                hungerSystem?.UpdateUI();
-                healthSystem?.UpdateUI();
-                temperatureSystem?.UpdateUI();
-            }
+            Debug.LogWarning($"Warning: Item in slot {slotIndex} is either null or not a ConsumableItem. Action cancelled.");
+            return;
         }
-    }
 
+        ConsumableItem consumableItem = inventory.items[slotIndex] as ConsumableItem;
+
+        Debug.Log($"Using item: {consumableItem.itemName}.");
+
+        // Use the item's effects and check if the systems exist
+        if (hungerSystem != null)
+        {
+            hungerSystem.Eat(consumableItem.hungerRestoreAmount);
+            Debug.Log($"Hunger stat updated. Current hunger: {hungerSystem.currentHunger}");
+        }
+        else
+        {
+            Debug.LogWarning("HungerSystem is null. Cannot update hunger.");
+        }
+
+        if (healthSystem != null)
+        {
+            healthSystem.Heal(consumableItem.healthRestoreAmount);
+            Debug.Log($"Health stat updated. Current health: {healthSystem.currentHealth}");
+        }
+        else
+        {
+            Debug.LogWarning("HealthSystem is null. Cannot update health.");
+        }
+
+        if (temperatureSystem != null)
+        {
+            temperatureSystem.currentTemperature += consumableItem.temperatureChangeAmount;
+            Debug.Log($"Temperature stat updated. Current temperature: {temperatureSystem.currentTemperature}");
+        }
+        else
+        {
+            Debug.LogWarning("TemperatureSystem is null. Cannot update temperature.");
+        }
+        
+        // Finally, remove the item from the inventory
+        inventory.items[slotIndex] = null;
+        Debug.Log($"Item {consumableItem.itemName} successfully consumed and removed from inventory.");
+    }
+    
     void UpdateUI()
     {
         float hintTargetAlpha = (currentTarget != null || currentChest != null) ? 1f : 0f;
