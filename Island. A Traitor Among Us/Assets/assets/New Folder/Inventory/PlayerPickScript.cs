@@ -1,12 +1,17 @@
 using UnityEngine;
 using TMPro;
+using System.Collections;
+using System.Linq;
 
 public class PlayerPickScript : MonoBehaviour
 {
     [Header("Interaction")]
     public float pickRange = 3f;
-    public KeyCode pickKey = KeyCode.E;
-    public KeyCode dropKey = KeyCode.Q;
+    public KeyCode pickKeyE = KeyCode.E;
+    public KeyCode pickKeyQ = KeyCode.Q;
+    public KeyCode closeKeyX = KeyCode.X;
+
+    [Header("Inventory & Chests")]
     public Inventory inventory;
 
     [Header("Camera & UI")]
@@ -20,20 +25,38 @@ public class PlayerPickScript : MonoBehaviour
     public ChestUI chestUI;
     private Chest currentChest = null;
     private Item currentTarget = null;
+    
+    private HungerSystem hungerSystem;
+    private HealthSystem healthSystem;
+    private TemperatureSystem temperatureSystem;
 
     private bool isChestUIOpen = false;
+
+    void Start()
+    {
+        hungerSystem = GetComponent<HungerSystem>();
+        healthSystem = GetComponent<HealthSystem>();
+        temperatureSystem = GetComponent<TemperatureSystem>();
+    }
 
     void Update()
     {
         if (playerCamera == null || inventory == null || pickupHint == null || hintCanvasGroup == null)
             return;
 
-        HandleRaycast();
-        HandleInput();
+        if (isChestUIOpen)
+        {
+            HandleChestUIInteraction();
+        }
+        else
+        {
+            HandleWorldInteraction();
+        }
+
         UpdateUI();
     }
 
-    void HandleRaycast()
+    void HandleWorldInteraction()
     {
         currentTarget = null;
         currentChest = null;
@@ -47,7 +70,7 @@ public class PlayerPickScript : MonoBehaviour
             if (chest != null)
             {
                 currentChest = chest;
-                pickupHint.text = "Нажмите [E] чтобы открыть сундук";
+                pickupHint.text = $"Нажмите [{pickKeyE}] чтобы открыть сундук";
             }
             else
             {
@@ -59,9 +82,163 @@ public class PlayerPickScript : MonoBehaviour
                 }
             }
         }
+        else
+        {
+            pickupHint.text = "";
+        }
 
-        float targetAlpha = (currentTarget != null || currentChest != null) ? 1f : 0f;
-        hintCanvasGroup.alpha = Mathf.MoveTowards(hintCanvasGroup.alpha, targetAlpha, fadeSpeed * Time.deltaTime);
+        if (Input.GetKeyDown(pickKeyQ))
+        {
+            if (inventory.items[0] is ConsumableItem)
+            {
+                UseItemFromSlotQ();
+            }
+            else if (currentTarget != null)
+            {
+                inventory.AddItem(currentTarget, 0);
+                currentTarget = null;
+            }
+            else if (inventory.items[0] != null)
+            {
+                inventory.DropItem(0, transform);
+            }
+        }
+
+        if (Input.GetKeyDown(pickKeyE))
+        {
+            if (currentChest != null)
+            {
+                isChestUIOpen = true;
+                if (chestUI != null)
+                {
+                    chestUI.chest = currentChest;
+                    chestUI.UpdateUI();
+                }
+            }
+            else if (inventory.items[1] is ConsumableItem)
+            {
+                UseItemFromSlotE();
+            }
+            else if (currentTarget != null)
+            {
+                inventory.AddItem(currentTarget, 1);
+                currentTarget = null;
+            }
+            else if (inventory.items[1] != null)
+            {
+                inventory.DropItem(1, transform);
+            }
+        }
+    }
+
+    void HandleChestUIInteraction()
+    {
+        if (Input.GetKeyDown(closeKeyX))
+        {
+            isChestUIOpen = false;
+            return;
+        }
+
+        if (Input.GetKeyDown(pickKeyE))
+        {
+            bool wasItemAdded = false;
+            if (inventory.items[0] != null && currentChest != null)
+            {
+                Item itemToStore = inventory.items[0];
+                if (currentChest.TryStoreItem(itemToStore))
+                {
+                    inventory.items[0] = null;
+                    wasItemAdded = true;
+                }
+            }
+            if (inventory.items[1] != null && currentChest != null)
+            {
+                Item itemToStore = inventory.items[1];
+                if (currentChest.TryStoreItem(itemToStore))
+                {
+                    inventory.items[1] = null;
+                    wasItemAdded = true;
+                }
+            }
+            if (wasItemAdded)
+            {
+                chestUI.UpdateUI();
+            }
+        }
+        
+        if (Input.GetKeyDown(pickKeyQ))
+        {
+            bool wasItemTaken = false;
+            for (int i = 0; i < inventory.items.Count; i++)
+            {
+                if (inventory.items[i] == null)
+                {
+                    Item itemToTake = currentChest.items.FirstOrDefault(item => item != null);
+                    if (itemToTake != null)
+                    {
+                        currentChest.RemoveItem(currentChest.items.IndexOf(itemToTake));
+                        inventory.AddItem(itemToTake, i);
+                        wasItemTaken = true;
+                    }
+                }
+            }
+            if (wasItemTaken)
+            {
+                chestUI.UpdateUI();
+            }
+        }
+    }
+
+    void UseItemFromSlotQ()
+    {
+        Item itemToUse = inventory.items[0];
+        if (itemToUse != null)
+        {
+            ConsumableItem consumableItem = itemToUse as ConsumableItem;
+            if (consumableItem != null)
+            {
+                consumableItem.Use(gameObject);
+                inventory.items[0] = null;
+                // Обновляем UI после использования
+                hungerSystem?.UpdateUI();
+                healthSystem?.UpdateUI();
+                temperatureSystem?.UpdateUI();
+            }
+        }
+    }
+
+    void UseItemFromSlotE()
+    {
+        Item itemToUse = inventory.items[1];
+        if (itemToUse != null)
+        {
+            ConsumableItem consumableItem = itemToUse as ConsumableItem;
+            if (consumableItem != null)
+            {
+                consumableItem.Use(gameObject);
+                inventory.items[1] = null;
+                // Обновляем UI после использования
+                hungerSystem?.UpdateUI();
+                healthSystem?.UpdateUI();
+                temperatureSystem?.UpdateUI();
+            }
+        }
+    }
+
+    void UpdateUI()
+    {
+        float hintTargetAlpha = (currentTarget != null || currentChest != null) ? 1f : 0f;
+        hintCanvasGroup.alpha = Mathf.MoveTowards(hintCanvasGroup.alpha, hintTargetAlpha, fadeSpeed * Time.deltaTime);
+
+        float chestTargetAlpha = isChestUIOpen ? 1f : 0f;
+        chestUIPanel.alpha = Mathf.MoveTowards(chestUIPanel.alpha, chestTargetAlpha, fadeSpeed * Time.deltaTime);
+        chestUIPanel.interactable = isChestUIOpen;
+        chestUIPanel.blocksRaycasts = isChestUIOpen;
+
+        if (isChestUIOpen)
+        {
+            pickupHint.text = $"Нажмите [{pickKeyE}] чтобы положить | [{pickKeyQ}] чтобы забрать | [{closeKeyX}] чтобы закрыть";
+        }
     }
 
     void UpdateItemHint()
@@ -69,85 +246,14 @@ public class PlayerPickScript : MonoBehaviour
         if (currentTarget != null)
         {
             string hint = "";
-            if (inventory.items[0] == null) hint += "[Q] ";
-            if (inventory.items[1] == null) hint += "[E] ";
-            hint += currentTarget.itemName;
+            if (inventory.items[0] == null) hint += $"[Q] ";
+            if (inventory.items[1] == null) hint += $"[E] ";
+            hint += $"Подобрать {currentTarget.itemName}";
             pickupHint.text = hint;
         }
         else
         {
             pickupHint.text = "";
-        }
-    }
-
-    void HandleInput()
-    {
-        if (currentChest != null && Input.GetKeyDown(pickKey))
-        {
-            isChestUIOpen = !isChestUIOpen;
-            if (isChestUIOpen)
-            {
-                if (chestUI != null)
-                {
-                    chestUI.chest = currentChest;
-                    chestUI.UpdateUI();
-                }
-            }
-        }
-
-        if (!isChestUIOpen)
-        {
-            if (Input.GetKeyDown(dropKey))
-            {
-                if (inventory.items[0] != null)
-                {
-                    // Вызываем DropItem с позицией игрока
-                    inventory.DropItem(0, transform);
-                }
-                else if (currentTarget != null)
-                {
-                    if (currentChest != null)
-                    {
-                        currentChest.TryStoreItem(currentTarget);
-                    }
-                    else
-                    {
-                        inventory.AddItem(currentTarget, 0);
-                    }
-                    currentTarget = null;
-                }
-            }
-            if (Input.GetKeyDown(pickKey))
-            {
-                if (inventory.items[1] != null)
-                {
-                    // Вызываем DropItem с позицией игрока
-                    inventory.DropItem(1, transform);
-                }
-                else if (currentTarget != null)
-                {
-                    if (currentChest != null)
-                    {
-                        currentChest.TryStoreItem(currentTarget);
-                    }
-                    else
-                    {
-                        inventory.AddItem(currentTarget, 1);
-                    }
-                    currentTarget = null;
-                }
-            }
-        }
-    }
-
-    void UpdateUI()
-    {
-        if (chestUIPanel != null)
-        {
-            float chestAlpha = isChestUIOpen ? 1f : 0f;
-            chestUIPanel.alpha = Mathf.MoveTowards(chestUIPanel.alpha, chestAlpha, fadeSpeed * Time.deltaTime);
-            chestUIPanel.interactable = isChestUIOpen;
-            chestUIPanel.blocksRaycasts = isChestUIOpen;
         }
     }
 }

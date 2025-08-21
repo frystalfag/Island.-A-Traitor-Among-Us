@@ -4,39 +4,45 @@ using UnityEngine.UI;
 
 public class ChestUI : MonoBehaviour
 {
+    [Header("UI References")]
+    [Tooltip("Список UI-слотов для сундука. Перетащи сюда все слоты вручную.")]
+    public List<Image> slots;
+    [Tooltip("Ссылка на скрипт Chest.")]
     public Chest chest;
-    // Удаляем старые публичные переменные
-    // public GameObject slotPrefab;
-    // public Transform slotParent;
 
-    // Новый публичный список для слотов, которые ты назначишь вручную
-    public List<Image> slotImages = new List<Image>();
-
-    private void Awake()
+    void Start()
     {
-        // Теперь Awake() ничего не делает, так как слоты уже существуют в сцене
-        // и будут назначены через инспектор
+        if (slots == null || slots.Count == 0)
+        {
+            Debug.LogError("Список слотов UI сундука пуст или не подключен в инспекторе!");
+            return;
+        }
+        
+        if (chest == null)
+        {
+            Debug.LogError("Скрипт Chest не подключен в инспекторе ChestUI!");
+            return;
+        }
+
+        UpdateUI();
     }
 
-    // Этот метод теперь публичный
     public void UpdateUI()
     {
-        if (chest == null || slotImages.Count == 0) return;
-
-        for (int i = 0; i < slotImages.Count; i++)
+        if (slots == null || chest == null) return;
+        
+        for (int i = 0; i < slots.Count; i++)
         {
-            if (i >= chest.storedItems.Count) continue;
-
-            Item item = chest.storedItems[i];
-            if (item != null)
+            if (i < chest.items.Count && chest.items[i] != null)
             {
-                slotImages[i].sprite = item.itemIcon;
-                slotImages[i].color = Color.white;
+                // Отображаем иконку предмета, если он есть
+                slots[i].enabled = true;
+                slots[i].sprite = chest.items[i].itemIcon;
             }
             else
             {
-                slotImages[i].sprite = null;
-                slotImages[i].color = new Color(1, 1, 1, 0);
+                // Иначе скрываем слот
+                slots[i].enabled = false;
             }
         }
     }

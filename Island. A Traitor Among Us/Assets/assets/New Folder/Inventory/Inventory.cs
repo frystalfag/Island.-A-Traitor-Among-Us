@@ -5,25 +5,40 @@ public class Inventory : MonoBehaviour
 {
     // === Inventory Settings ===
     [Header("Inventory")]
+    [Tooltip("Максимальное количество слотов в инвентаре.")]
     public int maxSlots = 2;
+    [Tooltip("Список предметов в инвентаре.")]
     public List<Item> items = new List<Item>();
 
     // === Drop Settings ===
     [Header("Drop settings")]
+    [Tooltip("Расстояние, на которое предмет будет выброшен вперед.")]
     public float dropForwardDistance = 1.5f;
+    [Tooltip("Высота, на которой предмет будет выброшен.")]
     public float dropHeight = 1f;
 
     // === Crafting ===
     [Header("Crafting")]
+    [Tooltip("Ссылка на скрипт CraftManager.")]
     public CraftManager craftManager;
 
     private void Awake()
     {
+        if (items == null)
+        {
+            items = new List<Item>();
+        }
+        
         while (items.Count < maxSlots)
             items.Add(null);
 
         if (craftManager == null)
             craftManager = FindAnyObjectByType<CraftManager>();
+        
+        if (craftManager == null)
+        {
+            Debug.LogWarning("CraftManager не найден на сцене. Крафт работать не будет.");
+        }
     }
 
     public void AddItem(Item newItem, int slotIndex)
@@ -37,6 +52,12 @@ public class Inventory : MonoBehaviour
         if (slotIndex < 0 || slotIndex >= maxSlots)
         {
             Debug.LogWarning("Неверный слот: " + slotIndex);
+            return;
+        }
+        
+        if (items == null)
+        {
+            Debug.LogError("Список предметов инвентаря не инициализирован!");
             return;
         }
 
@@ -61,6 +82,12 @@ public class Inventory : MonoBehaviour
     {
         if (slotIndex < 0 || slotIndex >= maxSlots) return;
 
+        if (items == null || items.Count <= slotIndex)
+        {
+            Debug.LogError("Список предметов инвентаря не инициализирован или имеет неверный размер!");
+            return;
+        }
+        
         Item item = items[slotIndex];
         if (item == null)
         {
@@ -69,7 +96,20 @@ public class Inventory : MonoBehaviour
         }
 
         items[slotIndex] = null;
+
+        if (item.gameObject == null)
+        {
+            Debug.LogError("Игровой объект предмета оказался null!");
+            return;
+        }
+
         item.gameObject.SetActive(true);
+
+        if (playerTransform == null)
+        {
+            Debug.LogError("Player Transform не подключен для выброса предмета!");
+            return;
+        }
 
         Vector3 dropPos = playerTransform.position + playerTransform.forward * dropForwardDistance + Vector3.up * dropHeight;
 
@@ -88,7 +128,7 @@ public class Inventory : MonoBehaviour
         Rigidbody rb = item.GetComponent<Rigidbody>();
         if (rb != null)
         {
-            rb.isKinematic = true; // Теперь всегда true, как ты просил
+            rb.isKinematic = true; // Кинематика всегда включена
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
         }
